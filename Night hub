@@ -1,0 +1,298 @@
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "NightHub"
+ScreenGui.Parent = game:GetService("CoreGui")
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 280, 0, 300)
+MainFrame.Position = UDim2.new(0.5, -140, 0.3, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local Stroke = Instance.new("UIStroke")
+Stroke.Color = Color3.fromRGB(60, 60, 60)
+Stroke.Thickness = 1
+Stroke.Parent = MainFrame
+
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(0, 12)
+Corner.Parent = MainFrame
+
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1, 0, 0, 45)
+TopBar.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+TopBar.BorderSizePixel = 0
+TopBar.Parent = MainFrame
+
+local TopCorner = Instance.new("UICorner")
+TopCorner.CornerRadius = UDim.new(0, 12)
+TopCorner.Parent = TopBar
+
+-- Título con gradiente animado
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(0.8, 0, 1, 0)
+Title.Position = UDim2.new(0.05, 0, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "Night Hub"
+Title.TextSize = 22
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = TopBar
+
+-- Animación de colores para el título
+local hue = 0
+spawn(function()
+    while Title and Title.Parent do
+        hue = (hue + 0.01) % 1
+        local color = Color3.fromHSV(hue, 0.8, 1)
+        Title.TextColor3 = color
+        wait(0.05)
+    end
+end)
+
+local CloseX = Instance.new("TextButton")
+CloseX.Size = UDim2.new(0, 35, 0, 35)
+CloseX.Position = UDim2.new(1, -40, 0, 5)
+CloseX.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+CloseX.Text = "×"
+CloseX.TextColor3 = Color3.fromRGB(255, 100, 100)
+CloseX.TextSize = 24
+CloseX.Font = Enum.Font.GothamBold
+CloseX.Parent = TopBar
+
+local CloseXCorner = Instance.new("UICorner")
+CloseXCorner.CornerRadius = UDim.new(0, 8)
+CloseXCorner.Parent = CloseX
+
+local InfoLabel = Instance.new("TextLabel")
+InfoLabel.Size = UDim2.new(0.9, 0, 0, 50)
+InfoLabel.Position = UDim2.new(0.05, 0, 0.18, 0)
+InfoLabel.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+InfoLabel.Text = "Eliminados: 0 | Estado: Inactivo"
+InfoLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+InfoLabel.TextSize = 13
+InfoLabel.Font = Enum.Font.Gotham
+InfoLabel.TextWrapped = true
+InfoLabel.Parent = MainFrame
+
+local InfoCorner = Instance.new("UICorner")
+InfoCorner.CornerRadius = UDim.new(0, 8)
+InfoCorner.Parent = InfoLabel
+
+local DeleteBtn = Instance.new("TextButton")
+DeleteBtn.Size = UDim2.new(0.9, 0, 0, 50)
+DeleteBtn.Position = UDim2.new(0.05, 0, 0.42, 0)
+DeleteBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+DeleteBtn.Text = "Eliminar tráfico (manual)"
+DeleteBtn.TextColor3 = Color3.fromRGB(255, 150, 50)
+DeleteBtn.TextSize = 15
+DeleteBtn.Font = Enum.Font.GothamBold
+DeleteBtn.Parent = MainFrame
+
+local DeleteCorner = Instance.new("UICorner")
+DeleteCorner.CornerRadius = UDim.new(0, 10)
+DeleteCorner.Parent = DeleteBtn
+
+local AutoBtn = Instance.new("TextButton")
+AutoBtn.Size = UDim2.new(0.9, 0, 0, 50)
+AutoBtn.Position = UDim2.new(0.05, 0, 0.65, 0)
+AutoBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+AutoBtn.Text = "Limpieza automática: Desactivada"
+AutoBtn.TextColor3 = Color3.fromRGB(100, 150, 255)
+AutoBtn.TextSize = 15
+AutoBtn.Font = Enum.Font.GothamBold
+AutoBtn.Parent = MainFrame
+
+local AutoCorner = Instance.new("UICorner")
+AutoCorner.CornerRadius = UDim.new(0, 10)
+AutoCorner.Parent = AutoBtn
+
+local autoDeleteEnabled = false
+local autoDeleteConnection = nil
+local totalDeleted = 0
+
+local function getMyVehicle()
+    local char = player.Character
+    if not char then return nil end
+    
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if humanoid and humanoid.SeatPart then
+        return humanoid.SeatPart:FindFirstAncestorOfClass("Model")
+    end
+    return nil
+end
+
+local function isAICar(model)
+    if not model:IsA("Model") then return false end
+    
+    local myCar = getMyVehicle()
+    if myCar and model == myCar then return false end
+    
+    for _, otherPlayer in pairs(Players:GetPlayers()) do
+        if otherPlayer ~= player then
+            local otherChar = otherPlayer.Character
+            if otherChar then
+                local humanoid = otherChar:FindFirstChildOfClass("Humanoid")
+                if humanoid and humanoid.SeatPart then
+                    local theirCar = humanoid.SeatPart:FindFirstAncestorOfClass("Model")
+                    if theirCar and model == theirCar then
+                        return false
+                    end
+                end
+            end
+        end
+    end
+    
+    local hasVehicleSeat = model:FindFirstChildOfClass("VehicleSeat") ~= nil
+    local hasDriveSeat = model:FindFirstChild("DriveSeat") ~= nil
+    local hasSeat = model:FindFirstChildOfClass("Seat") ~= nil
+    
+    if not (hasVehicleSeat or hasDriveSeat or hasSeat) then return false end
+    
+    local hasWheels = false
+    local hasBody = false
+    
+    for _, part in pairs(model:GetDescendants()) do
+        if part:IsA("BasePart") then
+            local name = part.Name:lower()
+            if name:find("wheel") or name:find("rueda") or name:find("tire") or name:find("llanta") then
+                hasWheels = true
+            end
+            if name:find("body") or name:find("chassis") or name:find("car") or name:find("auto") then
+                hasBody = true
+            end
+        end
+    end
+    
+    if hasVehicleSeat or hasDriveSeat then
+        return true
+    end
+    
+    if hasWheels and hasSeat then
+        return true
+    end
+    
+    return false
+end
+
+local function deleteAICars()
+    local deleted = 0
+    
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if obj:IsA("Model") then
+            if isAICar(obj) then
+                pcall(function()
+                    obj:Destroy()
+                    deleted = deleted + 1
+                end)
+            end
+        end
+    end
+    
+    totalDeleted = totalDeleted + deleted
+    return deleted
+end
+
+local function deleteByName()
+    local deleted = 0
+    local namesToDelete = {
+        "Traffic", "NPC", "Bot", "AI", "TrafficCar", "NPCCar", "AICar",
+        "CarAI", "VehicleAI", "AutoCar", "DummyCar", "Taxi", "PoliceAI",
+        "TrafficVehicle", "SpawnedCar", "GeneratedCar"
+    }
+    
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if obj:IsA("Model") or obj:IsA("Folder") then
+            local name = obj.Name:lower()
+            for _, targetName in pairs(namesToDelete) do
+                if name:find(targetName:lower()) then
+                    local myCar = getMyVehicle()
+                    if obj ~= myCar then
+                        pcall(function()
+                            obj:Destroy()
+                            deleted = deleted + 1
+                        end)
+                    end
+                    break
+                end
+            end
+        end
+    end
+    
+    return deleted
+end
+
+DeleteBtn.MouseButton1Click:Connect(function()
+    InfoLabel.Text = "Procesando..."
+    
+    local deleted1 = deleteAICars()
+    local deleted2 = deleteByName()
+    local total = deleted1 + deleted2
+    
+    InfoLabel.Text = string.format("Eliminados: %d | Completado: %d vehículos", totalDeleted, total)
+    
+    DeleteBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 0)
+    wait(0.2)
+    DeleteBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+end)
+
+AutoBtn.MouseButton1Click:Connect(function()
+    autoDeleteEnabled = not autoDeleteEnabled
+    
+    if autoDeleteEnabled then
+        AutoBtn.Text = "Limpieza automática: Activada"
+        AutoBtn.TextColor3 = Color3.fromRGB(100, 255, 100)
+        
+        autoDeleteConnection = RunService.Heartbeat:Connect(function()
+            local deleted = deleteAICars()
+            if deleted > 0 then
+                totalDeleted = totalDeleted + deleted
+                InfoLabel.Text = string.format("Eliminados: %d | Automático activo", totalDeleted)
+            end
+        end)
+    else
+        AutoBtn.Text = "Limpieza automática: Desactivada"
+        AutoBtn.TextColor3 = Color3.fromRGB(100, 150, 255)
+        
+        if autoDeleteConnection then
+            autoDeleteConnection:Disconnect()
+            autoDeleteConnection = nil
+        end
+        
+        InfoLabel.Text = string.format("Eliminados: %d | Pausado", totalDeleted)
+    end
+end)
+
+CloseX.MouseButton1Click:Connect(function()
+    autoDeleteEnabled = false
+    if autoDeleteConnection then
+        autoDeleteConnection:Disconnect()
+    end
+    ScreenGui:Destroy()
+end)
+
+local buttons = {DeleteBtn, AutoBtn}
+for _, btn in pairs(buttons) do
+    btn.MouseEnter:Connect(function()
+        btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    end)
+    btn.MouseLeave:Connect(function()
+        btn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    end)
+end
+
+CloseX.MouseEnter:Connect(function()
+    CloseX.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
+end)
+CloseX.MouseLeave:Connect(function()
+    CloseX.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+end)
+
+InfoLabel.Text = "Sistema activo | Inicie la limpieza de vehículos"
